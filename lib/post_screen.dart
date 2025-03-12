@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:loading_indicator/loading_indicator.dart'; // Import loading_indicator
+import 'package:loading_indicator/loading_indicator.dart';
 import 'post_model.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:async';
 
 class PostScreen extends StatefulWidget {
   @override
@@ -13,11 +15,52 @@ class _PostScreenState extends State<PostScreen> {
   List<Post>? posts = [];
   bool isLoading = true;
   String? errorMessage;
+  ConnectivityResult _connectionStatus = ConnectivityResult.none;
+  final Connectivity _connectivity = Connectivity();
+  late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
 
   @override
   void initState() {
     super.initState();
+    initConnectivity();
+    _connectivitySubscription = _connectivity.onConnectivityChanged.listen((
+      List<ConnectivityResult> result,
+    ) {
+      _updateConnectionStatus(result);
+    });
+
     fetchPosts();
+  }
+
+  Future<void> initConnectivity() async {
+    late List<ConnectivityResult> result;
+    // result = await _connectivity.checkConnectivity();
+    try {
+      result = await _connectivity.checkConnectivity();
+    } catch (e) {
+      print('Could not check connectivity status: $e');
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    _updateConnectionStatus(result);
+  }
+
+  Future<void> _updateConnectionStatus(List<ConnectivityResult> result) async {
+    setState(() {
+      _connectionStatus =
+          result.isNotEmpty ? result.first : ConnectivityResult.none;
+    });
+    if (_connectionStatus != ConnectivityResult.none && posts == null) {
+      fetchPosts();
+    }
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription.cancel();
+    super.dispose();
   }
 
   Future<void> fetchPosts() async {
@@ -70,7 +113,29 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   Widget buildBody() {
-    if (isLoading) {
+    if (_connectionStatus == ConnectivityResult.none) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.wifi_off, color: Colors.red, size: 48.0),
+            SizedBox(height: 8.0),
+            Text(
+              'No internet connection. Please check your network settings.',
+              style: TextStyle(fontSize: 16.0, color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 16.0),
+            ElevatedButton(
+              onPressed: () {
+                initConnectivity();
+              },
+              child: Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    } else if (isLoading) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
