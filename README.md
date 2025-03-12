@@ -1,6 +1,3 @@
-Here's an enhanced version of your README to make it more attractive and readable:
-
-```markdown
 # API Fetching App
 
 A Flutter application that fetches and displays data from a public API.
